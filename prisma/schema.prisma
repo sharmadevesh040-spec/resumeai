@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  name             String?
+  passwordHash     String?
+  role             String         @default("USER") // USER, ADMIN
+  subscriptionTier String         @default("FREE") // FREE, PRO, ENTERPRISE
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  resumes          Resume[]
+  subscriptions    Subscription[]
+  usages           Usage[]
+}
+
+model Resume {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String           @default("Untitled Resume")
+  targetRole      String?
+  templateId      String           @default("ats-professional")
+  contentJson     String           // Stores structured ResumeData JSON
+  styleSettings   String?          // Stores StyleSettings JSON
+  atsScore        Int?             @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  versions        ResumeVersion[]
+  jobDescriptions JobDescription[]
+  jobAnalyses     JobAnalysis[]
+
+  @@index([userId])
+}
+
+model ResumeVersion {
+  id            String   @id @default(cuid())
+  resumeId      String
+  resume        Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  title         String
+  contentJson   String
+  createdAt     DateTime @default(now())
+
+  @@index([resumeId])
+}
+
+model ResumeTemplate {
+  id              String   @id
+  name            String
+  category        String
+  description     String
+  bestFor         String
+  atsRating       Int      @default(5)
+  thumbnailUrl    String?
+  recommendedRole String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+model JobDescription {
+  id          String   @id @default(cuid())
+  resumeId    String
+  resume      Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  targetRole  String?
+  companyName String?
+  rawText     String
+  parsedData  String?  // JSON
+  createdAt   DateTime @default(now())
+
+  @@index([resumeId])
+}
+
+model JobAnalysis {
+  id              String   @id @default(cuid())
+  resumeId        String
+  resume          Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  matchScore      Int      @default(0)
+  skillsMatch     Int      @default(0)
+  keywordMatch    Int      @default(0)
+  experienceMatch Int      @default(0)
+  educationMatch  Int      @default(0)
+  analysisData    String   // JSON of strengths, missingKeywords, recommendations
+  createdAt       DateTime @default(now())
+
+  @@index([resumeId])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 String    @default("FREE") // FREE, PRO
+  status               String    @default("ACTIVE") // ACTIVE, CANCELLED, PAST_DUE
+  currentPeriodStart   DateTime  @default(now())
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Usage {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionType String   // "ai_improve", "pdf_export", "resume_create", "job_analysis"
+  count      Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@index([userId, actionType])
+}
+
+model ImportedProfile {
+  id              String   @id @default(cuid())
+  userId          String?
+  linkedinUrl     String?
+  githubUrl       String?
+  githubUsername  String?
+  rawGithubData   String?  // JSON
+  rawLinkedinData String?  // JSON
+  normalizedData  String   // JSON
+  selectedRepos   String?  // JSON
+  targetRole      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
